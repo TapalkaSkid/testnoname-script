@@ -1,3 +1,4 @@
+getgenv().gethui = function() return game.CoreGui end
 print("пр")
 local Connections = {}
 local Disconnect = function(name)
