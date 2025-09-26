@@ -1,1 +1,827 @@
-do print("пр");local Connections={};local Disconnect=function(name) if Connections[name] then Connections[name]:Disconnect();Connections[name]=nil;end end;local ReplicatedStorage=game:GetService("ReplicatedStorage");local RunService=game:GetService("RunService");local Workspace=workspace;local UserInputService=game:GetService("UserInputService");local Debris=game:GetService("Debris");local compileCoroutine;local fireAllCoroutine;local OwnershipEvent=ReplicatedStorage.GrabEvents.SetNetworkOwner;local UnOwnershipEvent=ReplicatedStorage.GrabEvents.DestroyGrabLine;local ACEvent=ReplicatedStorage.GameCorrectionEvents.GameCorrectionsNotify;local BombEvent=ReplicatedStorage.BombEvents.BombExplode;local Players=game:GetService("Players");local LocalPlayer=Players.LocalPlayer;local plr=LocalPlayer;local playerName=(LocalPlayer and LocalPlayer.Name) or "" ;local Character=LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait() ;local HumanoidRootPart=Character:WaitForChild("HumanoidRootPart");local Humanoid=Character:WaitForChild("Humanoid");local humanoid=Humanoid;local rootPart=HumanoidRootPart;local safePosition=rootPart.Position;local restoreFrames=0;local antiGucciConnection=nil;local seat=nil;local blobmanInstanceS=nil;local autoGucciT=false;local sitJumpT=false;local permRagdollRunningS=false;local permRagdollT=false;local connections={};local paintPartsBackup={};local antiBlob1T=false;local antiBlob1Conn=nil;local fireAllEnabled=false;local fireAllThread=nil;local strengthConnection=nil;_G.strength=_G.strength or 300 ;local rs=ReplicatedStorage;local Limbs={"Left Arm","Left Leg","Right Arm","Right Leg"};local CharacterAndBeamMove=LocalPlayer:WaitForChild("PlayerScripts").CharacterAndBeamMove;local AntiExplosion=function() HumanoidRootPart.Anchored=true;task.wait();HumanoidRootPart.Anchored=false;Humanoid.Sit=false;for i=1, #Limbs do local limb=Character:FindFirstChild(Limbs[i]);if limb then limb.RagdollLimbPart.CanCollide=false;end end end;local BlobmanSet=function(Blobman) if Blobman then local l=Blobman and Blobman:FindFirstChild("LeftDetector") ;local r=Blobman and Blobman:FindFirstChild("RightDetector") ;local lw=l and l:FindFirstChild("LeftWeld") ;local rw=r and r:FindFirstChild("RightWeld") ;local grabevent=Blobman and Blobman.BlobmanSeatAndOwnerScript.CreatureGrab ;local dropevent=Blobman and Blobman.BlobmanSeatAndOwnerScript.CreatureDrop ;return l,r,lw,rw,grabevent,dropevent;end end;local Blobman=(Humanoid.SeatPart and (Humanoid.SeatPart.Parent.Name=="CreatureBlobman") and Humanoid.SeatPart.Parent) or nil ;local LeftDetector,RightDetector,LeftWeld,RightWeld,GrabEvent,DropEvent=BlobmanSet(Blobman);local ToyFolder=workspace[string.format("%sSpawnedInToys",LocalPlayer.Name)];Humanoid:GetPropertyChangedSignal("SeatPart"):Connect(function() local SeatPart=Humanoid.SeatPart;if (SeatPart and (SeatPart.Parent.Name=="CreatureBlobman")) then Blobman=SeatPart.Parent;LeftDetector,RightDetector,LeftWeld,RightWeld,GrabEvent,DropEvent=BlobmanSet(SeatPart.Parent);end end);LocalPlayer.CharacterAdded:Connect(function(char) Character=char;Humanoid=Character:WaitForChild("Humanoid");HumanoidRootPart=Character:WaitForChild("HumanoidRootPart");Humanoid:GetPropertyChangedSignal("SeatPart"):Connect(function() local SeatPart=Humanoid.SeatPart;if (SeatPart and (SeatPart.Parent.Name=="CreatureBlobman")) then Blobman=SeatPart.Parent;LeftDetector,RightDetector,LeftWeld,RightWeld,GrabEvent,DropEvent=BlobmanSet(SeatPart.Parent);end end);end);local GetPlayerFromWeld=function(Weld) return Weld.Attachment0 and Weld.Attachment0.Parent and Weld.Attachment0.Parent.Parent ;end;local Ownership=function(Part) OwnershipEvent:FireServer(Part,Part.CFrame);end;local UnOwnership=function(Part) UnOwnershipEvent:FireServer(Part);end;local Grab=function(Hand,Part,Attach) GrabEvent:FireServer(Hand,Part,Attach);end;local Drop=function(Weld,Part) DropEvent:FireServer(Weld,Part);end;local function spawnBlobman() local args={[1]="CreatureBlobman",[2]=CFrame.new(0,5000000,0),[3]=Vector3.new(0,60,0)};ReplicatedStorage.MenuToys.SpawnToyRemoteFunction:InvokeServer(unpack(args));local folder=Workspace:WaitForChild(playerName   .. "SpawnedInToys" ,5);if (folder and folder:FindFirstChild("CreatureBlobman")) then local blob=folder.CreatureBlobman;if blob:FindFirstChild("Head") then blob.Head.CFrame=CFrame.new(0,50000,0);blob.Head.Anchored=true;end end end local function startAntiGucci() local character=LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait() ;humanoid=character:WaitForChild("Humanoid");rootPart=character:WaitForChild("HumanoidRootPart");safePosition=rootPart.Position;local folder=Workspace:FindFirstChild(playerName   .. "SpawnedInToys" );local blob=folder and folder:FindFirstChild("CreatureBlobman") ;seat=blob and blob:FindFirstChild("VehicleSeat") ;if (seat and seat:IsA("VehicleSeat")) then rootPart.CFrame=seat.CFrame + Vector3.new(0,2,0) ;seat:Sit(humanoid);end humanoid:GetPropertyChangedSignal("Jump"):Connect(function() if (humanoid.Jump and humanoid.Sit) then restoreFrames=15;safePosition=rootPart.Position;end end);if antiGucciConnection then antiGucciConnection:Disconnect();end antiGucciConnection=RunService.Heartbeat:Connect(function() if ( not rootPart or  not humanoid) then return;end ReplicatedStorage.CharacterEvents.RagdollRemote:FireServer(rootPart,0);if (restoreFrames>0) then rootPart.CFrame=CFrame.new(safePosition);restoreFrames=restoreFrames-1 ;end end);task.spawn(function() while humanoid.Sit do task.wait(1);end task.wait(0.5);rootPart.CFrame=CFrame.new(safePosition);end);end local function stopAntiGucci() if antiGucciConnection then antiGucciConnection:Disconnect();antiGucciConnection=nil;end local blobFolder=Workspace:FindFirstChild(playerName   .. "SpawnedInToys" );if (blobFolder and blobFolder:FindFirstChild("CreatureBlobman")) then blobFolder.CreatureBlobman:Destroy();end end local function getBlobmanF() local folder=Workspace:FindFirstChild(playerName   .. "SpawnedInToys" );return (folder and folder:FindFirstChild("CreatureBlobman")) or nil ;end local function destroyBlobmanF() if (blobmanInstanceS and blobmanInstanceS.Destroy) then pcall(function() blobmanInstanceS:Destroy();end);blobmanInstanceS=nil;end end local function ragdollLoopF() task.spawn(function() for _=1,30 do if rootPart then pcall(function() ReplicatedStorage.CharacterEvents.RagdollRemote:FireServer(rootPart,0);end);end task.wait(0.1);end end);end function sitJumpF() local char=plr.Character;local hrp=char:WaitForChild("HumanoidRootPart");local hum=char:WaitForChild("Humanoid");if ( not char or  not hum) then return;end local startTime=tick();while autoGucciT and ((tick() -startTime)<6)  do if blobmanInstanceS then local seat=blobmanInstanceS:FindFirstChildWhichIsA("VehicleSeat");if (seat and (seat.Occupant~=hum)) then seat:Sit(hum);end end task.wait(0.1);if (char and hum) then hum:ChangeState(Enum.HumanoidStateType.Jumping);end task.wait(0.1);end if blobmanInstanceS then destroyBlobmanF();end autoGucciT=false;sitJumpT=false;end function spawnBlobmanF() local char=plr.Character;local hrp=char:WaitForChild("HumanoidRootPart");local hum=char:WaitForChild("Humanoid");local spawnRemote=rs:WaitForChild("MenuToys"):WaitForChild("SpawnToyRemoteFunction");if spawnRemote then pcall(function() spawnRemote:InvokeServer("CreatureBlobman",hrp.CFrame * CFrame.new(0,0, -5) ,Vector3.new(0, -15.716,0));end);task.wait(1);blobmanInstanceS=getBlobmanF();end end function setRagdollF(state) local char=plr.Character;local hrp=char:WaitForChild("HumanoidRootPart");local hum=char:WaitForChild("Humanoid");if (char and char:FindFirstChild("HumanoidRootPart")) then rs:WaitForChild("CharacterEvents"):WaitForChild("RagdollRemote"):FireServer(hrp,(state and 1) or 0 );if hum then hum.PlatformStand=state;end end end function permRagdollLoopF() local char=plr.Character;local hrp=char:WaitForChild("HumanoidRootPart");local hum=char:WaitForChild("Humanoid");if permRagdollRunningS then return;end permRagdollRunningS=true;while permRagdollT do setRagdollF(true);task.wait(0.5);end permRagdollRunningS=false;setRagdollF(false);end local function deleteAllPaintParts() for _,obj in ipairs(Workspace:GetDescendants()) do if (obj:IsA("BasePart") and (obj.Name=="PaintPlayerPart")) then local clone=obj:Clone();clone.Archivable=true;paintPartsBackup[obj:GetDebugId()]={clone=clone,parent=obj.Parent};obj:Destroy();end end end local function restorePaintParts() for _,data in pairs(paintPartsBackup) do if (data.clone and data.parent) then data.clone.Parent=data.parent;end end paintPartsBackup={};end local function watchNewPaintParts() table.insert(connections,Workspace.DescendantAdded:Connect(function(obj) if (obj:IsA("BasePart") and (obj.Name=="PaintPlayerPart")) then task.defer(function() if (obj and obj.Parent) then local clone=obj:Clone();clone.Archivable=true;paintPartsBackup[obj:GetDebugId()]={clone=clone,parent=obj.Parent};obj:Destroy();end end);end end));end local function setTouchQuery(enabled) return (enabled and true) or false ;end local function disconnectWatchers() for _,conn in ipairs(connections) do if conn.Connected then conn:Disconnect();end end connections={};end function antiBlob1F(enabled) antiBlob1T=(enabled and true) or false ;if antiBlob1Conn then antiBlob1Conn:Disconnect();antiBlob1Conn=nil;end if  not antiBlob1T then return;end antiBlob1Conn=workspace.DescendantAdded:Connect(function(toy) if (toy and (toy.Name=="CreatureBlobman") and antiBlob1T) then task.defer(function() pcall(function() local left=toy:FindFirstChild("LeftDetector");local right=toy:FindFirstChild("RightDetector");if left then left:Destroy();end if right then right:Destroy();end end);end);end end);end local OrionLib=loadstring(game:HttpGet("https://raw.githubusercontent.com/TapalkaSkid/Custom-Orion-Lib/refs/heads/main/Orion.lua"))();local Window=OrionLib:MakeWindow({Name="defense",HidePremium=false,PremiumText="",Theme="DarkBlue",SaveConfig=true,IntroEnabled=false,ToggleUIButton=Enum.KeyCode.Tab,UnlockMouse=false,ConfigFolder="skidding pro",CloseCallback=function() OrionLib:MakeNotification({Name="Close Menu?",Content="Click TAB of open menu",Image="rbxassetid://4483345998",Time=5});end});local Tab=Window:MakeTab({Name="Anti",Icon="rbxassetid://4483345998",Restricted=false,RestrictedMessage="Unauthorised Access",RestrictedIcon="rbxassetid://3610239960",RestrictedLabel="Premium Features",RestrictedLabelIcon="rbxassetid://4483345875",RestrictedContent="This part of the script is locked to Premium users"});Tab:AddToggle({Name=[[Anti Grab <font color="rgb(255, 0, 0)"><b>[BASE]</b></font>]],Default=false,Flag="AntiGrab",Save=true,Callback=function(state) if state then local plrs=game:GetService("Players");local rs=game:GetService("RunService");local repStorage=game:GetService("ReplicatedStorage");local physicsService=game:GetService("PhysicsService");local plr=plrs.LocalPlayer;local char=plr.Character or plr.CharacterAdded:Wait() ;local hrp=char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart",2) ;local head=char:FindFirstChild("Head") or char:WaitForChild("Head",2) ;local humanoid=char:FindFirstChild("Humanoid") or char:WaitForChild("Humanoid",2) ;local IsHeld=plr:FindFirstChild("IsHeld") or plr:WaitForChild("IsHeld",2) ;local Struggle=repStorage:FindFirstChild("CharacterEvents") and repStorage.CharacterEvents:FindFirstChild("Struggle") ;local Ragdoll=repStorage:FindFirstChild("CharacterEvents") and repStorage.CharacterEvents:FindFirstChild("RagdollRemote") ;local StopVel=repStorage:FindFirstChild("GameCorrectionEvents") and repStorage.GameCorrectionEvents:FindFirstChild("StopAllVelocity") ;local originalHrpProperties={Anchored=hrp.Anchored,CFrame=hrp.CFrame,AssemblyLinearVelocity=hrp.AssemblyLinearVelocity,AssemblyAngularVelocity=hrp.AssemblyAngularVelocity,CollisionGroup=hrp.CollisionGroup};local function hyperGrabHandler() if IsHeld.Value then task.spawn(function() pcall(function() local groups=physicsService:GetCollisionGroups();local exists=false;for _,g in ipairs(groups) do if (g.name=="AntiGrabImmune") then exists=true;break;end end if  not exists then physicsService:CreateCollisionGroup("AntiGrabImmune");physicsService:CollisionGroupSetCollidable("AntiGrabImmune","AntiGrabImmune",false);end end);hrp.Anchored=true;head.Anchored=true;physicsService:SetPartCollisionGroup(hrp,"AntiGrabImmune");physicsService:SetPartCollisionGroup(head,"AntiGrabImmune");end);task.defer(function() for i=1,5 do if Struggle then Struggle:FireServer();end end end);task.defer(function() if Ragdoll then Ragdoll:FireServer(hrp,0);end end);task.defer(function() if StopVel then StopVel:FireServer();end end);local struggleCycle=0;local ultraStruggleConnection;ultraStruggleConnection=rs.PreRender:Connect(function() if  not IsHeld.Value then return;end struggleCycle=struggleCycle + 1 ;if ((struggleCycle%2)==0) then task.defer(function() for i=1,3 do if Struggle then Struggle:FireServer();end end end);end if  not hrp.Anchored then hrp.Anchored=true;end if  not head.Anchored then head.Anchored=true;end end);local hyperReleaseConnection=IsHeld.Changed:Connect(function() if  not IsHeld.Value then task.defer(function() hrp.Anchored=originalHrpProperties.Anchored;head.Anchored=false;if  not hrp.Anchored then hrp.AssemblyLinearVelocity=originalHrpProperties.AssemblyLinearVelocity;hrp.AssemblyAngularVelocity=originalHrpProperties.AssemblyAngularVelocity;end physicsService:SetPartCollisionGroup(hrp,originalHrpProperties.CollisionGroup or "Default" );physicsService:SetPartCollisionGroup(head,"Default");end);if ultraStruggleConnection then ultraStruggleConnection:Disconnect();end hyperReleaseConnection:Disconnect();end end);local safetyNetConnection;safetyNetConnection=rs.Heartbeat:Connect(function() if ( not char or  not char.Parent or (humanoid.Health<=0)) then if ultraStruggleConnection then ultraStruggleConnection:Disconnect();end if hyperReleaseConnection then hyperReleaseConnection:Disconnect();end if safetyNetConnection then safetyNetConnection:Disconnect();end end end);end end antiGrabConnection=IsHeld.Changed:Connect(hyperGrabHandler);if IsHeld.Value then task.defer(hyperGrabHandler);end local hyperCharacterConnection;hyperCharacterConnection=plr.CharacterAdded:Connect(function(newChar) char=newChar;hrp=newChar:WaitForChild("HumanoidRootPart",1);head=newChar:WaitForChild("Head",1);humanoid=newChar:WaitForChild("Humanoid",1);if antiGrabConnection then antiGrabConnection:Disconnect();end antiGrabConnection=IsHeld.Changed:Connect(hyperGrabHandler);if IsHeld.Value then task.defer(hyperGrabHandler);end end);local crashProtectionConnection;crashProtectionConnection=rs.Heartbeat:Connect(function() if ( not plr or  not plr.Parent) then if antiGrabConnection then antiGrabConnection:Disconnect();end if hyperCharacterConnection then hyperCharacterConnection:Disconnect();end if crashProtectionConnection then crashProtectionConnection:Disconnect();end end end);antiGrabHyperConnections={hyperCharacterConnection,crashProtectionConnection};else if antiGrabConnection then antiGrabConnection:Disconnect();antiGrabConnection=nil;end if antiGrabHyperConnections then for _,conn in ipairs(antiGrabHyperConnections) do if conn then conn:Disconnect();end end antiGrabHyperConnections=nil;end if (hrp and head) then task.defer(function() hrp.Anchored=false;head.Anchored=false;physicsService:SetPartCollisionGroup(hrp,"Default");physicsService:SetPartCollisionGroup(head,"Default");end);end end end});Tab:AddToggle({Name=[[Anti Grab <font color="rgb(255, 0, 0)"><b>[GUCCI]</b></font>]],Default=false,Flag="AntiGrab",Save=true,Callback=function(Value) autoGucciT=Value;if autoGucciT then spawnBlobmanF();task.wait(1.1);if  not sitJumpT then coroutine.wrap(sitJumpF)();sitJumpT=true;end ragdollLoopF();else sitJumpT=false;destroyBlobmanF();stopAntiGucci();end end});Tab:AddToggle({Name=[[Anti SnowBall <font color="rgb(255, 0, 0)"><b>[TRIP]</b></font>]],Default=false,Flag="AntiSnowBall",Save=true,Callback=function(Value) permRagdollT=Value;if (permRagdollT and  not permRagdollRunningS) then coroutine.wrap(permRagdollLoopF)();elseif  not permRagdollT then permRagdollRunningS=false;end end});Tab:AddToggle({Name="Anti Explosion",Default=false,Flag="AntiExplosion",Save=true,Callback=function(Value) if Value then Connections['AntiExplosion']=BombEvent.OnClientEvent:Connect(AntiExplosion);Connections['AntiExplosionHelper']=LocalPlayer.CharacterAdded:Connect(function(char) HumanoidRootPart=char:WaitForChild("HumanoidRootPart",5);Disconnect("AntiExplosion");Connections['AntiExplosion']=BombEvent.OnClientEvent:Connect(AntiExplosion);end);end end});Tab:AddToggle({Name="Anti Blobman",Default=false,Flag="AntiBlobman",Save=true,Callback=function(Value) antiBlob1F(Value);end});Tab:AddToggle({Name="Anti Barrier",Default=false,Flag="AntiBarrier",Save=true,Callback=function(Value) local plots=workspace:FindFirstChild("Plots");if  not plots then return;end for _,plot in plots:GetChildren() do local barrierModel=plot:FindFirstChild("Barrier");if barrierModel then for _,part in barrierModel:GetChildren() do part.CanCollide= not Value;part.CanTouch= not Value;part.CanQuery= not Value;end end end end});Tab:AddToggle({Name="Anti Paint",Default=false,Flag="Antipaint",Save=true,Callback=function(state) if state then deleteAllPaintParts();watchNewPaintParts();setTouchQuery(false);else restorePaintParts();disconnectWatchers();setTouchQuery(true);end end});Tab:AddToggle({Name="Anti Lag",Default=false,Flag="AntiLag",Save=true,Callback=function(Value) CharacterAndBeamMove.Disabled=Value;end});Tab:AddToggle({Name=[[Anti Kick <font color="rgb(255, 0, 0)"><b>[DEATH]</b></font>]],Default=false,Flag="FlyingReset",Save=true,Callback=function(Value) if Value then Connections["AC Reset"]=ACEvent.OnClientEvent:Connect(function(Reason) if (Reason=="Flying") then Humanoid.Health=0;end end);else Disconnect("AC Reset");end end});local GrabTab=Window:MakeTab({Name="Combat",Icon="rbxassetid://4483345998",Restricted=false,RestrictedMessage="Unauthorised Access",RestrictedIcon="rbxassetid://3610239960",RestrictedLabel="Premium Features",RestrictedLabelIcon="rbxassetid://4483345875",RestrictedContent="This part of the script is locked to Premium users"});GrabTab:AddSlider({Name=[[Strength <font color="rgb(255, 0, 0)"><b>[Power]</b></font>]],Range={300,10000},Increment=1,Suffix="",CurrentValue=300,Flag="StrengthSlider",Callback=function(Value) _G.strength=tonumber(Value) or _G.strength ;end});GrabTab:AddToggle({Name=[[Strength <font color="rgb(255, 0, 0)"><b>[Grab]</b></font>]],Default=false,Flag="silaReset",Save=true,Callback=function(enabled) if enabled then strengthConnection=workspace.ChildAdded:Connect(function(model) if (model and (model.Name=="GrabParts")) then local grabPart=model:FindFirstChild("GrabPart");local weldConstraint=grabPart and grabPart:FindFirstChild("WeldConstraint") ;local partToImpulse=weldConstraint and weldConstraint.Part1 ;if partToImpulse then local velocityObj=Instance.new("BodyVelocity",partToImpulse);model:GetPropertyChangedSignal("Parent"):Connect(function() if  not model.Parent then local camera=workspace.CurrentCamera;if (camera and (UserInputService:GetLastInputType()==Enum.UserInputType.MouseButton2)) then velocityObj.MaxForce=Vector3.new(math.huge,math.huge,math.huge);velocityObj.Velocity=camera.CFrame.LookVector * _G.strength ;Debris:AddItem(velocityObj,1);else velocityObj:Destroy();end end end);end end end);elseif strengthConnection then strengthConnection:Disconnect();strengthConnection=nil;end end});local Tab=Window:MakeTab({Name="Blobman",Icon="rbxassetid://4483345998",Restricted=false,RestrictedMessage="Unauthorised Access",RestrictedIcon="rbxassetid://3610239960",RestrictedLabel="Premium Features",RestrictedLabelIcon="rbxassetid://4483345875",RestrictedContent="This part of the script is locked to Premium users"});local Tab=Window:MakeTab({Name="Custom Line",Icon="rbxassetid://4483345998",Restricted=false,RestrictedMessage="Unauthorised Access",RestrictedIcon="rbxassetid://3610239960",RestrictedLabel="Premium Features",RestrictedLabelIcon="rbxassetid://4483345875",RestrictedContent="This part of the script is locked to Premium users"});local Misc=Window:MakeTab({Name="Misc",Icon="rbxassetid://4483345998",Restricted=false,RestrictedMessage="Unauthorised Access",RestrictedIcon="rbxassetid://3610239960",RestrictedLabel="Premium Features",RestrictedLabelIcon="rbxassetid://4483345875",RestrictedContent="This part of the script is locked to Premium users"});Misc:AddToggle({Name=[[Fire <font color="rgb(255, 0, 0)"><b>[All]</b></font>]],Default=false,Flag="FireAll",Save=true,Callback=function(value) fireAllEnabled=(value and true) or false ;if (fireAllEnabled and  not fireAllThread) then fireAllThread=task.spawn(function() while fireAllEnabled do if fireAll then pcall(fireAll);end task.wait(0.2);end fireAllThread=nil;end);end end});OrionLib:Init(); end
+print("пр")
+local Connections = {}
+local Disconnect = function(name)
+	if Connections[name] then
+		Connections[name]:Disconnect()
+		Connections[name] = nil
+	end
+end
+
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = workspace
+local UserInputService = game:GetService("UserInputService")
+local Debris = game:GetService("Debris")
+
+local compileCoroutine
+local fireAllCoroutine
+
+local OwnershipEvent = ReplicatedStorage.GrabEvents.SetNetworkOwner
+local UnOwnershipEvent = ReplicatedStorage.GrabEvents.DestroyGrabLine
+local ACEvent = ReplicatedStorage.GameCorrectionEvents.GameCorrectionsNotify
+local BombEvent = ReplicatedStorage.BombEvents.BombExplode
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local plr = LocalPlayer
+local playerName = LocalPlayer and LocalPlayer.Name or ""
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+local Humanoid = Character:WaitForChild("Humanoid")
+
+-- Shared state for anti-gucci helpers
+local humanoid = Humanoid
+local rootPart = HumanoidRootPart
+local safePosition = rootPart.Position
+local restoreFrames = 0
+local antiGucciConnection = nil
+local seat = nil
+local blobmanInstanceS = nil
+local autoGucciT = false
+local sitJumpT = false
+local permRagdollRunningS = false
+local permRagdollT = false
+local connections = {}
+local paintPartsBackup = {}
+local antiBlob1T = false
+local antiBlob1Conn = nil
+local fireAllEnabled = false
+local fireAllThread = nil
+local strengthConnection = nil
+_G.strength = _G.strength or 300
+
+-- Aliases
+local rs = ReplicatedStorage
+
+local Limbs = {
+	"Left Arm",
+	"Left Leg",
+	"Right Arm",
+	"Right Leg"
+}
+
+local CharacterAndBeamMove = LocalPlayer:WaitForChild("PlayerScripts").CharacterAndBeamMove
+
+local AntiExplosion = function()
+    HumanoidRootPart.Anchored = true
+    task.wait()
+    HumanoidRootPart.Anchored = false
+    Humanoid.Sit = false
+    for i = 1, #Limbs do
+        local limb = Character:FindFirstChild(Limbs[i])
+        if limb then
+            limb.RagdollLimbPart.CanCollide = false
+        end
+    end
+end
+
+local BlobmanSet = function(Blobman)
+    if Blobman then
+        local l = Blobman and Blobman:FindFirstChild("LeftDetector")
+        local r = Blobman and Blobman:FindFirstChild("RightDetector")
+        local lw = l and l:FindFirstChild("LeftWeld")
+        local rw = r and r:FindFirstChild("RightWeld")
+        local grabevent = Blobman and Blobman.BlobmanSeatAndOwnerScript.CreatureGrab
+        local dropevent = Blobman and Blobman.BlobmanSeatAndOwnerScript.CreatureDrop
+        return l,r,lw,rw,grabevent,dropevent
+    end
+end
+
+local Blobman = Humanoid.SeatPart and Humanoid.SeatPart.Parent.Name == "CreatureBlobman" and Humanoid.SeatPart.Parent or nil
+local LeftDetector, RightDetector, LeftWeld, RightWeld, GrabEvent, DropEvent = BlobmanSet(Blobman)
+local ToyFolder = workspace[string.format("%sSpawnedInToys", LocalPlayer.Name)]
+
+Humanoid:GetPropertyChangedSignal("SeatPart"):Connect(function()
+    local SeatPart = Humanoid.SeatPart
+    if SeatPart and SeatPart.Parent.Name == "CreatureBlobman" then
+        Blobman = SeatPart.Parent
+        LeftDetector, RightDetector, LeftWeld, RightWeld, GrabEvent, DropEvent = BlobmanSet(SeatPart.Parent)
+    end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    Character = char
+    Humanoid = Character:WaitForChild("Humanoid")
+    HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+    Humanoid:GetPropertyChangedSignal("SeatPart"):Connect(function()
+        local SeatPart = Humanoid.SeatPart
+        if SeatPart and SeatPart.Parent.Name == "CreatureBlobman" then
+            Blobman = SeatPart.Parent
+            LeftDetector, RightDetector, LeftWeld, RightWeld, GrabEvent, DropEvent = BlobmanSet(SeatPart.Parent)
+        end
+    end)
+end)
+
+local GetPlayerFromWeld = function(Weld)
+	return Weld.Attachment0 and Weld.Attachment0.Parent and Weld.Attachment0.Parent.Parent
+end
+
+local Ownership = function(Part)
+    OwnershipEvent:FireServer(Part, Part.CFrame)
+end
+
+local UnOwnership = function(Part)
+    UnOwnershipEvent:FireServer(Part)
+end
+
+local Grab = function(Hand, Part, Attach)
+	GrabEvent:FireServer(Hand, Part, Attach)
+end
+
+local Drop = function(Weld, Part)
+	DropEvent:FireServer(Weld, Part)
+end
+
+local function spawnBlobman()
+    local args = {
+        [1] = "CreatureBlobman",
+        [2] = CFrame.new(0, 5000000, 0),
+        [3] = Vector3.new(0, 60, 0)
+    }
+    ReplicatedStorage.MenuToys.SpawnToyRemoteFunction:InvokeServer(unpack(args))
+
+    local folder = Workspace:WaitForChild(playerName.."SpawnedInToys", 5)
+    if folder and folder:FindFirstChild("CreatureBlobman") then
+        local blob = folder.CreatureBlobman
+        if blob:FindFirstChild("Head") then
+            blob.Head.CFrame = CFrame.new(0, 50000, 0)
+            blob.Head.Anchored = true
+        end
+    end
+end
+
+local function startAntiGucci()
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    humanoid = character:WaitForChild("Humanoid")
+    rootPart = character:WaitForChild("HumanoidRootPart")
+    safePosition = rootPart.Position
+
+    local folder = Workspace:FindFirstChild(playerName.."SpawnedInToys")
+    local blob = folder and folder:FindFirstChild("CreatureBlobman")
+    seat = blob and blob:FindFirstChild("VehicleSeat")
+
+    if seat and seat:IsA("VehicleSeat") then
+        rootPart.CFrame = seat.CFrame + Vector3.new(0, 2, 0)
+        seat:Sit(humanoid)
+    end
+
+    humanoid:GetPropertyChangedSignal("Jump"):Connect(function()
+        if humanoid.Jump and humanoid.Sit then
+            restoreFrames = 15
+            safePosition = rootPart.Position
+        end
+    end)
+
+    if antiGucciConnection then antiGucciConnection:Disconnect() end
+    antiGucciConnection = RunService.Heartbeat:Connect(function()
+        if not rootPart or not humanoid then return end
+        ReplicatedStorage.CharacterEvents.RagdollRemote:FireServer(rootPart, 0)
+        if restoreFrames > 0 then
+            rootPart.CFrame = CFrame.new(safePosition)
+            restoreFrames = restoreFrames - 1
+        end
+    end)
+
+    task.spawn(function()
+        while humanoid.Sit do
+            task.wait(1)
+        end
+        task.wait(0.5)
+        rootPart.CFrame = CFrame.new(safePosition)
+    end)
+end
+
+local function stopAntiGucci()
+    if antiGucciConnection then
+        antiGucciConnection:Disconnect()
+        antiGucciConnection = nil
+    end
+    local blobFolder = Workspace:FindFirstChild(playerName.."SpawnedInToys")
+    if blobFolder and blobFolder:FindFirstChild("CreatureBlobman") then
+        blobFolder.CreatureBlobman:Destroy()
+    end
+end
+
+-- Minimal helper to find blobman instance
+local function getBlobmanF()
+    local folder = Workspace:FindFirstChild(playerName.."SpawnedInToys")
+    return folder and folder:FindFirstChild("CreatureBlobman") or nil
+end
+
+local function destroyBlobmanF()
+    if blobmanInstanceS and blobmanInstanceS.Destroy then
+        pcall(function()
+            blobmanInstanceS:Destroy()
+        end)
+        blobmanInstanceS = nil
+    end
+end
+
+local function ragdollLoopF()
+    -- Lightweight one-shot stabilization; intentionally not persistent
+    task.spawn(function()
+        for _ = 1, 30 do
+            if rootPart then
+                pcall(function()
+                    ReplicatedStorage.CharacterEvents.RagdollRemote:FireServer(rootPart, 0)
+                end)
+            end
+            task.wait(0.1)
+        end
+    end)
+end
+
+function sitJumpF()
+    local char = plr.Character
+    local hrp = char:WaitForChild("HumanoidRootPart")
+    local hum = char:WaitForChild("Humanoid")
+    if not char or not hum then return end
+    local startTime = tick()
+    while autoGucciT and tick()-startTime<6 do
+        if blobmanInstanceS then
+            local seat = blobmanInstanceS:FindFirstChildWhichIsA("VehicleSeat")
+            if seat and seat.Occupant ~= hum then seat:Sit(hum) end
+        end
+        task.wait(0.1)
+        if char and hum then hum:ChangeState(Enum.HumanoidStateType.Jumping)end
+        task.wait(0.1)
+    end
+    if blobmanInstanceS then destroyBlobmanF() end
+    autoGucciT = false
+    sitJumpT = false
+end
+
+function spawnBlobmanF()
+    local char = plr.Character
+    local hrp = char:WaitForChild("HumanoidRootPart")
+    local hum = char:WaitForChild("Humanoid")
+    local spawnRemote = rs:WaitForChild("MenuToys"):WaitForChild("SpawnToyRemoteFunction")
+    if spawnRemote then
+        pcall(function()spawnRemote:InvokeServer("CreatureBlobman", hrp.CFrame*CFrame.new(0,0,-5),Vector3.new(0, -15.716, 0))end)
+        task.wait(1)
+        blobmanInstanceS = getBlobmanF()
+    end
+end
+
+function setRagdollF(state)
+    local char = plr.Character
+    local hrp = char:WaitForChild("HumanoidRootPart")
+    local hum = char:WaitForChild("Humanoid")
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        rs:WaitForChild("CharacterEvents"):WaitForChild("RagdollRemote"):FireServer(hrp, state and 1 or 0)
+        if hum then hum.PlatformStand = state end
+    end
+end
+
+function permRagdollLoopF()
+    local char = plr.Character
+    local hrp = char:WaitForChild("HumanoidRootPart")
+    local hum = char:WaitForChild("Humanoid")
+    if permRagdollRunningS then return end
+    permRagdollRunningS = true
+    while permRagdollT do
+        setRagdollF(true)
+        task.wait(0.5)
+    end
+    permRagdollRunningS = false
+    setRagdollF(false)
+end
+
+local function deleteAllPaintParts()
+	for _, obj in ipairs(Workspace:GetDescendants()) do
+		if obj:IsA("BasePart") and obj.Name == "PaintPlayerPart" then
+			local clone = obj:Clone()
+			clone.Archivable = true
+			paintPartsBackup[obj:GetDebugId()] = { clone = clone, parent = obj.Parent }
+			obj:Destroy()
+		end
+	end
+end
+
+local function restorePaintParts()
+	for _, data in pairs(paintPartsBackup) do
+		if data.clone and data.parent then
+			data.clone.Parent = data.parent
+		end
+	end
+	paintPartsBackup = {}
+end
+
+local function watchNewPaintParts()
+	table.insert(connections, Workspace.DescendantAdded:Connect(function(obj)
+		if obj:IsA("BasePart") and obj.Name == "PaintPlayerPart" then
+			task.defer(function()
+				if obj and obj.Parent then
+					local clone = obj:Clone()
+					clone.Archivable = true
+					paintPartsBackup[obj:GetDebugId()] = { clone = clone, parent = obj.Parent }
+					obj:Destroy()
+				end
+			end)
+		end
+	end))
+end
+--paint
+local function setTouchQuery(enabled)
+    return enabled and true or false
+end
+
+local function disconnectWatchers()
+	for _, conn in ipairs(connections) do
+		if conn.Connected then conn:Disconnect() end
+	end
+	connections = {}
+end
+
+function antiBlob1F(enabled)
+    antiBlob1T = enabled and true or false
+    if antiBlob1Conn then
+        antiBlob1Conn:Disconnect()
+        antiBlob1Conn = nil
+    end
+    if not antiBlob1T then return end
+    antiBlob1Conn = workspace.DescendantAdded:Connect(function(toy)
+        if toy and toy.Name == "CreatureBlobman" and antiBlob1T then
+            task.defer(function()
+                pcall(function()
+                    local left = toy:FindFirstChild("LeftDetector")
+                    local right = toy:FindFirstChild("RightDetector")
+                    if left then left:Destroy() end
+                    if right then right:Destroy() end
+                end)
+            end)
+        end
+    end)
+end
+
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/TapalkaSkid/Custom-Orion-Lib/refs/heads/main/Orion.lua"))()
+
+local Window = OrionLib:MakeWindow({
+	Name = "defense", 
+	HidePremium = false, 
+    PremiumText = "",
+	Theme = "DarkBlue",
+	SaveConfig = true, 
+    IntroEnabled = false,
+	ToggleUIButton = Enum.KeyCode.Tab,
+	UnlockMouse = false,
+	ConfigFolder = "skidding pro",
+    CloseCallback = function()
+        OrionLib:MakeNotification({
+            Name = "Close Menu?",
+            Content = "Click TAB of open menu",
+            Image = "rbxassetid://4483345998",
+            Time = 5
+        })
+    end
+})
+
+local Tab = Window:MakeTab({
+	Name = "Anti",
+	Icon = "rbxassetid://4483345998",
+	Restricted = false,
+	RestrictedMessage = "Unauthorised Access",
+	RestrictedIcon = "rbxassetid://3610239960",
+	RestrictedLabel = "Premium Features",
+	RestrictedLabelIcon = "rbxassetid://4483345875",
+	RestrictedContent = "This part of the script is locked to Premium users"
+})
+
+Tab:AddToggle({
+	Name = [[Anti Grab <font color="rgb(255, 0, 0)"><b>[BASE]</b></font>]],
+	Default = false,
+    Flag = "AntiGrab",
+    Save = true,
+    Callback = function(state)
+        if state then
+            local plrs = game:GetService("Players")
+            local rs = game:GetService("RunService")
+            local repStorage = game:GetService("ReplicatedStorage")
+            local physicsService = game:GetService("PhysicsService")
+            
+            local plr = plrs.LocalPlayer
+            local char = plr.Character or plr.CharacterAdded:Wait()
+            
+            local hrp = char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart", 2)
+            local head = char:FindFirstChild("Head") or char:WaitForChild("Head", 2)
+            local humanoid = char:FindFirstChild("Humanoid") or char:WaitForChild("Humanoid", 2)
+            local IsHeld = plr:FindFirstChild("IsHeld") or plr:WaitForChild("IsHeld", 2)
+            
+            local Struggle = repStorage:FindFirstChild("CharacterEvents") and repStorage.CharacterEvents:FindFirstChild("Struggle") 
+            local Ragdoll = repStorage:FindFirstChild("CharacterEvents") and repStorage.CharacterEvents:FindFirstChild("RagdollRemote")
+            local StopVel = repStorage:FindFirstChild("GameCorrectionEvents") and repStorage.GameCorrectionEvents:FindFirstChild("StopAllVelocity")
+            
+            local originalHrpProperties = {
+                Anchored = hrp.Anchored,
+                CFrame = hrp.CFrame,
+                AssemblyLinearVelocity = hrp.AssemblyLinearVelocity,
+                AssemblyAngularVelocity = hrp.AssemblyAngularVelocity,
+                CollisionGroup = hrp.CollisionGroup
+            }
+            
+            local function hyperGrabHandler()
+                if IsHeld.Value then
+                    task.spawn(function()
+                        -- Ensure custom collision group exists
+                        pcall(function()
+                            local groups = physicsService:GetCollisionGroups()
+                            local exists = false
+                            for _, g in ipairs(groups) do
+                                if g.name == "AntiGrabImmune" then exists = true break end
+                            end
+                            if not exists then
+                                physicsService:CreateCollisionGroup("AntiGrabImmune")
+                                physicsService:CollisionGroupSetCollidable("AntiGrabImmune", "AntiGrabImmune", false)
+                            end
+                        end)
+                        hrp.Anchored = true
+                        head.Anchored = true
+                        
+                        physicsService:SetPartCollisionGroup(hrp, "AntiGrabImmune")
+                        physicsService:SetPartCollisionGroup(head, "AntiGrabImmune")
+                    end)
+                    
+                    task.defer(function()
+                        for i = 1, 5 do
+                            if Struggle then Struggle:FireServer() end
+                        end
+                    end)
+                    
+                    task.defer(function()
+                        if Ragdoll then Ragdoll:FireServer(hrp, 0) end
+                    end)
+                    
+                    task.defer(function()
+                        if StopVel then StopVel:FireServer() end
+                    end)
+                    
+                    local struggleCycle = 0
+                    local ultraStruggleConnection
+                    
+                    ultraStruggleConnection = rs.PreRender:Connect(function()
+                        if not IsHeld.Value then return end
+                        
+                        struggleCycle = struggleCycle + 1
+                        
+                        if struggleCycle % 2 == 0 then
+                            task.defer(function()
+                                for i = 1, 3 do
+                                    if Struggle then Struggle:FireServer() end
+                                end
+                            end)
+                        end
+                        
+                        if not hrp.Anchored then
+                            hrp.Anchored = true
+                        end
+                        if not head.Anchored then
+                            head.Anchored = true
+                        end
+                    end)
+                    
+                    local hyperReleaseConnection = IsHeld.Changed:Connect(function()
+                        if not IsHeld.Value then
+                            task.defer(function()
+                                hrp.Anchored = originalHrpProperties.Anchored
+                                head.Anchored = false
+                                
+                                if not hrp.Anchored then
+                                    hrp.AssemblyLinearVelocity = originalHrpProperties.AssemblyLinearVelocity
+                                    hrp.AssemblyAngularVelocity = originalHrpProperties.AssemblyAngularVelocity
+                                end
+                                
+                                physicsService:SetPartCollisionGroup(hrp, originalHrpProperties.CollisionGroup or "Default")
+                                physicsService:SetPartCollisionGroup(head, "Default")
+                            end)
+                            
+                            if ultraStruggleConnection then
+                                ultraStruggleConnection:Disconnect()
+                            end
+                            hyperReleaseConnection:Disconnect()
+                        end
+                    end)
+                    
+                    local safetyNetConnection
+                    safetyNetConnection = rs.Heartbeat:Connect(function()
+                        if not char or not char.Parent or humanoid.Health <= 0 then
+                            if ultraStruggleConnection then ultraStruggleConnection:Disconnect() end
+                            if hyperReleaseConnection then hyperReleaseConnection:Disconnect() end
+                            if safetyNetConnection then safetyNetConnection:Disconnect() end
+                        end
+                    end)
+                end
+            end
+            
+            antiGrabConnection = IsHeld.Changed:Connect(hyperGrabHandler)
+            
+            if IsHeld.Value then
+                task.defer(hyperGrabHandler)
+            end
+            
+            local hyperCharacterConnection
+            hyperCharacterConnection = plr.CharacterAdded:Connect(function(newChar)
+                char = newChar
+                hrp = newChar:WaitForChild("HumanoidRootPart", 1)
+                head = newChar:WaitForChild("Head", 1)
+                humanoid = newChar:WaitForChild("Humanoid", 1)
+                
+                if antiGrabConnection then
+                    antiGrabConnection:Disconnect()
+                end
+                
+                antiGrabConnection = IsHeld.Changed:Connect(hyperGrabHandler)
+                
+                if IsHeld.Value then
+                    task.defer(hyperGrabHandler)
+                end
+            end)
+            
+            local crashProtectionConnection
+            crashProtectionConnection = rs.Heartbeat:Connect(function()
+                if not plr or not plr.Parent then
+                    if antiGrabConnection then antiGrabConnection:Disconnect() end
+                    if hyperCharacterConnection then hyperCharacterConnection:Disconnect() end
+                    if crashProtectionConnection then crashProtectionConnection:Disconnect() end
+                end
+            end)
+            
+            antiGrabHyperConnections = {
+                hyperCharacterConnection,
+                crashProtectionConnection
+            }
+            
+        else
+            if antiGrabConnection then
+                antiGrabConnection:Disconnect()
+                antiGrabConnection = nil
+            end
+            
+            if antiGrabHyperConnections then
+                for _, conn in ipairs(antiGrabHyperConnections) do
+                    if conn then conn:Disconnect() end
+                end
+                antiGrabHyperConnections = nil
+            end
+            
+            if hrp and head then
+                task.defer(function()
+                    hrp.Anchored = false
+                    head.Anchored = false
+                    physicsService:SetPartCollisionGroup(hrp, "Default")
+                    physicsService:SetPartCollisionGroup(head, "Default")
+                end)
+            end
+        end
+    end
+})
+
+Tab:AddToggle({
+	Name = [[Anti Grab <font color="rgb(255, 0, 0)"><b>[GUCCI]</b></font>]],
+	Default = false,
+    Flag = "AntiGrab",
+    Save = true,
+    Callback = function(Value)
+        autoGucciT = Value
+        if autoGucciT then
+            spawnBlobmanF()
+            task.wait(1.1)
+            if not sitJumpT then
+                coroutine.wrap(sitJumpF)()
+                sitJumpT = true
+            end
+            ragdollLoopF()
+        else
+            sitJumpT = false
+            destroyBlobmanF()
+            stopAntiGucci()
+        end
+    end
+})
+
+Tab:AddToggle({
+	Name = [[Anti SnowBall <font color="rgb(255, 0, 0)"><b>[TRIP]</b></font>]],
+	Default = false,
+    Flag = "AntiSnowBall",
+    Save = true,
+	Callback = function(Value)
+        permRagdollT = Value
+        if permRagdollT and not permRagdollRunningS then
+            coroutine.wrap(permRagdollLoopF)()
+        elseif not permRagdollT then
+            permRagdollRunningS = false
+        end
+    end
+})
+
+Tab:AddToggle({
+	Name = "Anti Explosion",
+	Default = false,
+    Flag = "AntiExplosion",
+    Save = true,
+	Callback = function(Value)
+        if Value then
+            Connections["AntiExplosion"] = BombEvent.OnClientEvent:Connect(AntiExplosion)
+			Connections["AntiExplosionHelper"] = LocalPlayer.CharacterAdded:Connect(function(char)
+                HumanoidRootPart = char:WaitForChild("HumanoidRootPart", 5)
+                Disconnect("AntiExplosion")
+                Connections["AntiExplosion"] = BombEvent.OnClientEvent:Connect(AntiExplosion)
+			end)
+        end
+	end    
+})
+
+Tab:AddToggle({
+	Name = "Anti Blobman",
+	Default = false,
+    Flag = "AntiBlobman",
+    Save = true,
+	Callback = function(Value)
+        antiBlob1F(Value)
+    end  
+})
+
+Tab:AddToggle({
+	Name = "Anti Barrier",
+	Default = false,
+    Flag = "AntiBarrier",
+    Save = true,
+	Callback = function(Value)
+        local plots = workspace:FindFirstChild("Plots")
+        if not plots then return end
+        for _, plot in plots:GetChildren() do
+            local barrierModel = plot:FindFirstChild("Barrier")
+            if barrierModel then
+                for _, part in barrierModel:GetChildren() do
+                    part.CanCollide = not Value
+                    part.CanTouch = not Value
+                    part.CanQuery = not Value
+                end
+            end
+        end
+    end
+})
+
+Tab:AddToggle({
+	Name = "Anti Paint",
+	Default = false,
+    Flag = "Antipaint",
+    Save = true,
+	Callback = function(state)
+        if state then
+            deleteAllPaintParts()
+            watchNewPaintParts()
+            setTouchQuery(false)
+        else
+            restorePaintParts()
+            disconnectWatchers()
+            setTouchQuery(true)
+        end
+    end
+})
+
+Tab:AddToggle({
+	Name = "Anti Lag",
+	Default = false,
+    Flag = "AntiLag",
+    Save = true,
+	Callback = function(Value)
+        CharacterAndBeamMove.Disabled = Value
+	end    
+})
+
+Tab:AddToggle({
+	Name = [[Anti Kick <font color="rgb(255, 0, 0)"><b>[DEATH]</b></font>]],
+	Default = false,
+    Flag = "FlyingReset",
+    Save = true,
+	Callback = function(Value)
+		if Value then
+            Connections["AC Reset"] = ACEvent.OnClientEvent:Connect(function(Reason)
+                if Reason == "Flying" then
+                    Humanoid.Health = 0
+                end
+            end)
+        else
+            Disconnect("AC Reset")
+        end
+	end    
+})
+
+local GrabTab = Window:MakeTab({
+	Name = "Combat",
+	Icon = "rbxassetid://4483345998",
+	Restricted = false,
+	RestrictedMessage = "Unauthorised Access",
+	RestrictedIcon = "rbxassetid://3610239960",
+	RestrictedLabel = "Premium Features",
+	RestrictedLabelIcon = "rbxassetid://4483345875",
+	RestrictedContent = "This part of the script is locked to Premium users"
+})
+
+GrabTab:AddSlider({
+	Name = [[Strength <font color="rgb(255, 0, 0)"><b>[Power]</b></font>]],
+    Range = {300, 10000},
+    Increment = 1,
+    Suffix = "",
+    CurrentValue = 300,
+    Flag = "StrengthSlider", 
+    Callback = function(Value)
+        _G.strength = tonumber(Value) or _G.strength
+    end,
+})
+
+ GrabTab:AddToggle({
+	Name = [[Strength <font color="rgb(255, 0, 0)"><b>[Grab]</b></font>]],
+	Default = false,
+    Flag = "silaReset",
+    Save = true,
+	Callback = function(enabled)
+        if enabled then
+            strengthConnection = workspace.ChildAdded:Connect(function(model)
+                if model and model.Name == "GrabParts" then
+                    local grabPart = model:FindFirstChild("GrabPart")
+                    local weldConstraint = grabPart and grabPart:FindFirstChild("WeldConstraint")
+                    local partToImpulse = weldConstraint and weldConstraint.Part1
+                    if partToImpulse then
+                        local velocityObj = Instance.new("BodyVelocity", partToImpulse)
+                        model:GetPropertyChangedSignal("Parent"):Connect(function()
+                            if not model.Parent then
+                                local camera = workspace.CurrentCamera
+                                if camera and UserInputService:GetLastInputType() == Enum.UserInputType.MouseButton2 then
+                                    velocityObj.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                                    velocityObj.Velocity = camera.CFrame.LookVector * _G.strength
+                                    Debris:AddItem(velocityObj, 1)
+                                else
+                                    velocityObj:Destroy()
+                                end
+                            end
+                        end)
+                    end
+                end
+            end)
+        else
+            if strengthConnection then
+                strengthConnection:Disconnect()
+                strengthConnection = nil
+            end
+        end
+    end
+})
+
+local Tab = Window:MakeTab({
+	Name = "Blobman",
+	Icon = "rbxassetid://4483345998",
+	Restricted = false,
+	RestrictedMessage = "Unauthorised Access",
+	RestrictedIcon = "rbxassetid://3610239960",
+	RestrictedLabel = "Premium Features",
+	RestrictedLabelIcon = "rbxassetid://4483345875",
+	RestrictedContent = "This part of the script is locked to Premium users"
+})
+
+local Tab = Window:MakeTab({
+	Name = "Custom Line",
+	Icon = "rbxassetid://4483345998",
+	Restricted = false,
+	RestrictedMessage = "Unauthorised Access",
+	RestrictedIcon = "rbxassetid://3610239960",
+	RestrictedLabel = "Premium Features",
+	RestrictedLabelIcon = "rbxassetid://4483345875",
+	RestrictedContent = "This part of the script is locked to Premium users"
+})
+
+local Misc = Window:MakeTab({
+	Name = "Misc",
+	Icon = "rbxassetid://4483345998",
+	Restricted = false,
+	RestrictedMessage = "Unauthorised Access",
+	RestrictedIcon = "rbxassetid://3610239960",
+	RestrictedLabel = "Premium Features",
+	RestrictedLabelIcon = "rbxassetid://4483345875",
+	RestrictedContent = "This part of the script is locked to Premium users"
+})
+
+
+ Misc:AddToggle({
+    Name = [[Fire <font color="rgb(255, 0, 0)"><b>[All]</b></font>]],
+	Default = false,
+    Flag = "FireAll",
+    Save = true,
+    Callback = function(value)
+        fireAllEnabled = value and true or false
+        if fireAllEnabled and not fireAllThread then
+            fireAllThread = task.spawn(function()
+                while fireAllEnabled do
+                    if fireAll then
+                        pcall(fireAll)
+                    end
+                    task.wait(0.2)
+                end
+                fireAllThread = nil
+            end)
+        end
+    end 
+})
+
+OrionLib:Init()
